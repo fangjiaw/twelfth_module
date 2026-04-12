@@ -50,3 +50,10 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Config (contains passwords)
+application*.yml
+application*.properties
+
+# Claude Code
+CLAUDE.md
