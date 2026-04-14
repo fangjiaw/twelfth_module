@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -p \"精准用药课程大作业_学生版_46人.docx\" word/document.xml)"
+    ]
+  }
+}

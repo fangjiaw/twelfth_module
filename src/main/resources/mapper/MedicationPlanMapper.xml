@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.twelfth_module.mapper.MedicationPlanMapper">
+
+    <resultMap id="BaseResultMap" type="org.example.twelfth_module.entity.MedicationPlan">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="drug_id" property="drugId"/>
+        <result column="dosage" property="dosage"/>
+        <result column="unit" property="unit"/>
+        <result column="frequency" property="frequency"/>
+        <result column="time_slot" property="timeSlot"/>
+        <result column="scheduled_time" property="scheduledTime"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="course_days" property="courseDays"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="DetailResultMap" type="org.example.twelfth_module.entity.MedicationPlan" extends="BaseResultMap">
+        <result column="drug_name" property="drugName"/>
+        <result column="drug_specification" property="drugSpecification"/>
+    </resultMap>
+
+    <!-- 查询用户活跃的用药计划 -->
+    <select id="selectActivePlansByUserId" resultMap="DetailResultMap">
+        SELECT mp.*, d.drug_name, d.specification as drug_specification
+        FROM medication_plan mp
+        LEFT JOIN drug d ON mp.drug_id = d.id
+        WHERE mp.user_id = #{userId}
+        AND mp.status = 1
+        AND (mp.end_date IS NULL OR mp.end_date &gt;= CURDATE())
+        ORDER BY mp.scheduled_time ASC
+    </select>
+
+    <!-- 查询用户在指定日期的计划 -->
+    <select id="selectPlansByUserIdAndDate" resultMap="DetailResultMap">
+        SELECT mp.*, d.drug_name, d.specification as drug_specification
+        FROM medication_plan mp
+        LEFT JOIN drug d ON mp.drug_id = d.id
+        WHERE mp.user_id = #{userId}
+        AND mp.status = 1
+        AND mp.start_date &lt;= #{date}
+        AND (mp.end_date IS NULL OR mp.end_date &gt;= #{date})
+        ORDER BY mp.scheduled_time ASC
+    </select>
+
+    <!-- 查询单个计划 -->
+    <select id="selectById" resultMap="DetailResultMap">
+        SELECT mp.*, d.drug_name, d.specification as drug_specification
+        FROM medication_plan mp
+        LEFT JOIN drug d ON mp.drug_id = d.id
+        WHERE mp.id = #{id}
+    </select>
+
+    <!-- 统计用户活跃计划数量 -->
+    <select id="countActivePlans" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM medication_plan
+        WHERE user_id = #{userId}
+        AND status = 1
+        AND (end_date IS NULL OR end_date &gt;= CURDATE())
+    </select>
+
+</mapper>

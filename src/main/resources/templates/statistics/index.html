@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据统计 - 精准用药</title>
+    <!-- ECharts 5.x CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 轻度样式 -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 24px; font-weight: 600; }
+        .header-info { font-size: 14px; opacity: 0.9; }
+
+        /* 筛选栏 */
+        .filter-bar {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-item { display: flex; align-items: center; gap: 8px; }
+        .filter-item label { font-size: 14px; color: #666; }
+        .filter-item select, .filter-item input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #5a6fd6; }
+
+        /* 统计卡片 */
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .stat-card .label { font-size: 13px; color: #888; margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: #333; }
+        .stat-card .value.excellent { color: #52c41a; }
+        .stat-card .value.good { color: #faad14; }
+        .stat-card .value.warning { color: #f5222d; }
+        .stat-card .sub { font-size: 12px; color: #999; margin-top: 4px; }
+
+        /* 图表网格 */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .chart-card.full-width { grid-column: span 2; }
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .chart-container { height: 300px; }
+        .chart-container.small { height: 250px; }
+
+        /* 达标状态 */
+        .compliance-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .compliance-badge.excellent { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .compliance-badge.good { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+        .compliance-badge.warning { background: #fff1f0; color: #f5222d; border: 1px solid #ffccc7; }
+
+        /* 漏服提醒列表 */
+        .alert-list { max-height: 250px; overflow-y: auto; }
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .alert-item:last-child { border-bottom: none; }
+        .alert-info .drug-name { font-size: 14px; color: #333; font-weight: 500; }
+        .alert-info .plan-time { font-size: 12px; color: #999; margin-top: 2px; }
+        .alert-action { font-size: 12px; color: #faad14; }
+
+        /* 时间选择tabs */
+        .time-tabs {
+            display: flex;
+            gap: 8px;
+        }
+        .time-tab {
+            padding: 6px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .time-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div>
+            <h1>📊 数据统计</h1>
+            <div class="header-info">精准用药 · 服药情况可视化分析</div>
+        </div>
+        <div class="time-tabs">
+            <div class="time-tab active" data-days="7">近7天</div>
+            <div class="time-tab" data-days="14">近14天</div>
+            <div class="time-tab" data-days="30">近30天</div>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="filter-bar">
+        <div class="filter-item">
+            <label>用户：</label>
+            <select id="userSelect">
+                <option value="1">张三</option>
+                <option value="2">李四</option>
+                <option value="3">王五</option>
+                <option value="4">赵六</option>
+            </select>
+        </div>
+        <button class="btn" onclick="loadAllData()">刷新数据</button>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="label">本周打卡率</div>
+            <div class="value" id="checkInRate">--%</div>
+            <div class="sub">已完成 / 应服总数</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">本周漏服率</div>
+            <div class="value" id="missedRate">--%</div>
+            <div class="sub">漏服次数 / 应服总数</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">服药达标率</div>
+            <div class="value" id="complianceRate">--%</div>
+            <div class="sub" id="complianceLevel">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">连续打卡</div>
+            <div class="value" id="consecutiveDays">--天</div>
+            <div class="sub" id="longestStreak">历史最长 -- 天</div>
+        </div>
+    </div>
+
+    <!-- 今日概况 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="label">今日应服</div>
+            <div class="value" id="todayPlan">--</div>
+            <div class="sub">次</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">今日已服</div>
+            <div class="value excellent" id="todayDone">--</div>
+            <div class="sub">次</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">今日漏服</div>
+            <div class="value" id="todayMissed">--</div>
+            <div class="sub">次</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">时段完成率</div>
+            <div style="display:flex;gap:12px;margin-top:8px;">
+                <span style="font-size:13px;">早:<span id="morningRate">--</span>%</span>
+                <span style="font-size:13px;">中:<span id="afternoonRate">--</span>%</span>
+                <span style="font-size:13px;">晚:<span id="eveningRate">--</span>%</span>
+            </div>
+            <div class="sub">早6-12 / 中12-18 / 晚18-24</div>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="charts-grid">
+        <!-- 打卡率环形图 -->
+        <div class="chart-card">
+            <div class="chart-title">打卡率</div>
+            <div class="chart-container" id="checkInChart"></div>
+        </div>
+        <!-- 漏服率环形图 -->
+        <div class="chart-card">
+            <div class="chart-title">漏服率</div>
+            <div class="chart-container" id="missedChart"></div>
+        </div>
+        <!-- 服药趋势折线图 -->
+        <div class="chart-card full-width">
+            <div class="chart-title">服药依从性趋势</div>
+            <div class="chart-container" id="trendChart"></div>
+        </div>
+        <!-- 时段分析柱状图 -->
+        <div class="chart-card">
+            <div class="chart-title">服药时段分析</div>
+            <div class="chart-container" id="timeSlotChart"></div>
+        </div>
+        <!-- 药品排行 -->
+        <div class="chart-card">
+            <div class="chart-title">药品服用排行 TOP5</div>
+            <div class="chart-container" id="drugRankChart"></div>
+        </div>
+    </div>
+
+    <!-- 漏服提醒 -->
+    <div class="chart-card">
+        <div class="chart-title">漏服提醒</div>
+        <div class="alert-list" id="alertList">
+            <div style="text-align:center;color:#999;padding:40px;">暂无漏服记录</div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/statistics.js"></script>
+</body>
+</html>
