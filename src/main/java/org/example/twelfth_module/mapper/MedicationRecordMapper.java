@@ -2,6 +2,7 @@ package org.example.twelfth_module.mapper;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.example.twelfth_module.dto.DrugUsageStat;
 import org.example.twelfth_module.entity.MedicationRecord;
 import java.time.LocalDate;
 import java.util.List;
@@ -76,7 +77,7 @@ public interface MedicationRecordMapper {
     /**
      * 按药品统计使用次数
      */
-    List<MedicationRecord> selectDrugUsageStats(
+    List<DrugUsageStat> selectDrugUsageStats(
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);

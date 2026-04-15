@@ -1,10 +1,12 @@
 package org.example.twelfth_module.entity;
 
 import lombok.Data;
-import java.math.BigDecimal;
+import lombok.EqualsAndHashCode;
+
 import java.time.LocalDateTime;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class Drug {
     private Long id;
     private String drugCode; // 药品编码

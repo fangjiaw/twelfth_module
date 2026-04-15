@@ -45,7 +45,7 @@
         LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date = #{recordDate}
-        ORDER BY mr.scheduled_time ASC
+        ORDER BY mr.scheduled_time
     </select>
 
     <!-- 统计应服总量 -->
@@ -101,19 +101,20 @@
         LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date BETWEEN #{startDate} AND #{endDate}
-        ORDER BY mr.record_date ASC, mr.scheduled_time ASC
+        ORDER BY mr.record_date, mr.scheduled_time
     </select>
 
     <!-- 按药品统计使用次数 -->
-    <select id="selectDrugUsageStats" resultMap="DetailResultMap">
-        SELECT mr.drug_id, d.drug_name, d.specification, COUNT(*) as usage_count
+    <select id="selectDrugUsageStats" resultType="org.example.twelfth_module.dto.DrugUsageStat">
+        SELECT mr.drug_id as drugId, d.drug_name as drugName, d.specification as specification,
+               COUNT(*) as usageCount
         FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date BETWEEN #{startDate} AND #{endDate}
         AND mr.status IN (1, 3)
         GROUP BY mr.drug_id, d.drug_name, d.specification
-        ORDER BY usage_count DESC
+        ORDER BY usageCount DESC
     </select>
 
     <!-- 按时段分组统计（早/中/晚） -->
@@ -128,7 +129,7 @@
         LEFT JOIN drug d ON mr.drug_id = d.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date = #{recordDate}
-        ORDER BY mr.scheduled_time ASC
+        ORDER BY mr.scheduled_time
     </select>
 
     <!-- 获取漏服记录列表 -->
@@ -145,7 +146,11 @@
 
     <!-- 获取连续打卡记录（用于计算连续天数） -->
     <select id="selectConsecutiveDays" resultMap="BaseResultMap">
-        SELECT * FROM (
+        SELECT mr.id, mr.user_id, mr.plan_id, mr.drug_id, mr.scheduled_time,
+               mr.actual_time, mr.status, mr.is_on_time, mr.late_minutes,
+               mr.missed_reason, mr.supplement_action, mr.remark, mr.record_date,
+               mr.created_at, mr.updated_at
+        FROM (
             SELECT DISTINCT record_date, user_id
             FROM medication_record
             WHERE user_id = #{userId}
@@ -154,7 +159,8 @@
             ORDER BY record_date DESC
             LIMIT #{limitDays}
         ) t
-        ORDER BY record_date ASC
+        INNER JOIN medication_record mr ON t.user_id = mr.user_id AND t.record_date = mr.record_date
+        ORDER BY mr.record_date
     </select>
 
 </mapper>

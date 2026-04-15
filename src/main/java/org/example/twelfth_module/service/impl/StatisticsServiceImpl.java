@@ -5,10 +5,8 @@ import org.example.twelfth_module.dto.DrugUsageStat;
 import org.example.twelfth_module.dto.MissedAlert;
 import org.example.twelfth_module.dto.StatisticsSummary;
 import org.example.twelfth_module.entity.MedicationRecord;
-import org.example.twelfth_module.mapper.MedicationPlanMapper;
 import org.example.twelfth_module.mapper.MedicationRecordMapper;
 import org.example.twelfth_module.service.StatisticsService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -20,11 +18,11 @@ import java.util.stream.Collectors;
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
 
-    @Autowired
-    private MedicationRecordMapper recordMapper;
+    private final MedicationRecordMapper recordMapper;
 
-    @Autowired
-    private MedicationPlanMapper planMapper;
+    public StatisticsServiceImpl(MedicationRecordMapper recordMapper) {
+        this.recordMapper = recordMapper;
+    }
 
     @Override
     public Double getCheckInRate(Long userId, LocalDate startDate, LocalDate endDate) {
@@ -69,9 +67,6 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .map(MedicationRecord::getRecordDate)
                 .collect(Collectors.toSet());
 
-        List<LocalDate> sortedDates = new ArrayList<>(completedDates);
-        Collections.sort(sortedDates);
-
         // 从今天往前计算连续天数
         int consecutiveDays = 0;
         LocalDate checkDate = LocalDate.now();
@@ -102,8 +97,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .map(MedicationRecord::getRecordDate)
                 .collect(Collectors.toSet());
 
-        List<LocalDate> sortedDates = new ArrayList<>(completedDates);
-        Collections.sort(sortedDates);
+        List<LocalDate> sortedDates = completedDates.stream().sorted().toList();
 
         // 计算最长连续天数
         int maxStreak = 0;
@@ -131,6 +125,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         Map<String, Integer> completedBySlot = new HashMap<>();
 
         for (MedicationRecord record : records) {
+            if (record.getScheduledTime() == null) {
+                continue;
+            }
             String slot = getTimeSlot(record.getScheduledTime().toLocalTime());
             totalBySlot.merge(slot, 1, Integer::sum);
             if (record.getStatus() == 1 || record.getStatus() == 3) {
@@ -197,24 +194,21 @@ public class StatisticsServiceImpl implements StatisticsService {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusMonths(1);
 
-        List<MedicationRecord> records = recordMapper.selectDrugUsageStats(userId, startDate, endDate);
+        List<DrugUsageStat> drugStats = recordMapper.selectDrugUsageStats(userId, startDate, endDate);
 
-        // 按药品分组统计
-        Map<Long, DrugUsageStat> drugMap = new LinkedHashMap<>();
-        for (MedicationRecord record : records) {
-            DrugUsageStat stat = drugMap.computeIfAbsent(record.getDrugId(), id ->
-                    DrugUsageStat.builder()
-                            .drugId(record.getDrugId())
-                            .drugName(record.getDrugName())
-                            .usageCount(0)
-                            .build());
-            stat.setUsageCount(stat.getUsageCount() + 1);
+        if (drugStats == null || drugStats.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        // 计算总次数和占比
-        int totalUsage = drugMap.values().stream().mapToInt(DrugUsageStat::getUsageCount).sum();
+        // 计算总次数
+        int totalUsage = drugStats.stream().mapToInt(DrugUsageStat::getUsageCount).sum();
 
-        return drugMap.values().stream()
+        if (totalUsage == 0) {
+            return Collections.emptyList();
+        }
+
+        // 设置使用占比并返回
+        return drugStats.stream()
                 .sorted(Comparator.comparingInt(DrugUsageStat::getUsageCount).reversed())
                 .limit(limit)
                 .peek(stat -> stat.setUsageRate((double) stat.getUsageCount() / totalUsage))
@@ -241,13 +235,13 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private String getStatusText(Integer status) {
-        switch (status) {
-            case 0: return "待服";
-            case 1: return "已服";
-            case 2: return "漏服";
-            case 3: return "补服";
-            default: return "未知";
-        }
+        return switch (status) {
+            case 0 -> "待服";
+            case 1 -> "已服";
+            case 2 -> "漏服";
+            case 3 -> "补服";
+            default -> "未知";
+        };
     }
 
     private String generateSuggestAction(MedicationRecord record) {
@@ -269,7 +263,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     public StatisticsSummary getStatisticsSummary(Long userId) {
         LocalDate today = LocalDate.now();
         LocalDate weekStart = today.minusDays(6);
-        LocalDate monthStart = today.minusDays(29);
 
         Double weekCheckInRate = getCheckInRate(userId, weekStart, today);
         Double weekMissedRate = getMissedRate(userId, weekStart, today);

@@ -5,7 +5,6 @@ import org.example.twelfth_module.dto.DrugUsageStat;
 import org.example.twelfth_module.dto.MissedAlert;
 import org.example.twelfth_module.dto.StatisticsSummary;
 import org.example.twelfth_module.service.StatisticsService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,8 +17,11 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class StatisticsController {
 
-    @Autowired
-    private StatisticsService statisticsService;
+    private final StatisticsService statisticsService;
+
+    public StatisticsController(StatisticsService statisticsService) {
+        this.statisticsService = statisticsService;
+    }
 
     /**
      * 获取打卡率
@@ -158,6 +160,7 @@ public class StatisticsController {
         return buildSuccessResponse("allStatistics", result);
     }
 
+    @SuppressWarnings("unused")
     private Map<String, Object> buildSuccessResponse(String key, Object data) {
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("success", true);
