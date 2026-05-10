@@ -4,6 +4,10 @@ import org.example.twelfth_module.dto.DailyStats;
 import org.example.twelfth_module.dto.DrugUsageStat;
 import org.example.twelfth_module.dto.MissedAlert;
 import org.example.twelfth_module.dto.StatisticsSummary;
+import org.example.twelfth_module.entity.MedicationPlan;
+import org.example.twelfth_module.entity.MedicationRecord;
+import org.example.twelfth_module.mapper.MedicationPlanMapper;
+import org.example.twelfth_module.mapper.MedicationRecordMapper;
 import org.example.twelfth_module.service.StatisticsService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -18,9 +22,15 @@ import java.util.Map;
 public class StatisticsController {
 
     private final StatisticsService statisticsService;
+    private final MedicationPlanMapper medicationPlanMapper;
+    private final MedicationRecordMapper medicationRecordMapper;
 
-    public StatisticsController(StatisticsService statisticsService) {
+    public StatisticsController(StatisticsService statisticsService,
+                                MedicationPlanMapper medicationPlanMapper,
+                                MedicationRecordMapper medicationRecordMapper) {
         this.statisticsService = statisticsService;
+        this.medicationPlanMapper = medicationPlanMapper;
+        this.medicationRecordMapper = medicationRecordMapper;
     }
 
     /**
@@ -141,6 +151,24 @@ public class StatisticsController {
     }
 
     /**
+     * 获取今日用药工作台数据：计划 + 记录，用于前端时间线和处方卡片。
+     */
+    @GetMapping("/workspace")
+    public Map<String, Object> getWorkspace(@RequestParam Long userId) {
+        LocalDate today = LocalDate.now();
+        List<MedicationPlan> todayPlans = medicationPlanMapper.selectPlansByUserIdAndDate(userId, today);
+        List<MedicationRecord> todayRecords = medicationRecordMapper.selectByUserIdAndDate(userId, today);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("date", today);
+        result.put("todayPlans", todayPlans);
+        result.put("todayRecords", todayRecords);
+        result.put("activePlanCount", medicationPlanMapper.countActivePlans(userId));
+
+        return buildSuccessResponse("workspace", result);
+    }
+
+    /**
      * 获取所有统计数据（一次性获取，用于图表页面）
      */
     @GetMapping("/all")
@@ -156,6 +184,9 @@ public class StatisticsController {
         result.put("trend", statisticsService.getDailyTrend(userId, trendDays));
         result.put("topDrugs", statisticsService.getTopDrugs(userId, topDrugLimit));
         result.put("missedAlerts", statisticsService.getMissedAlerts(userId, startDate, today));
+        result.put("todayPlans", medicationPlanMapper.selectPlansByUserIdAndDate(userId, today));
+        result.put("todayRecords", medicationRecordMapper.selectByUserIdAndDate(userId, today));
+        result.put("activePlanCount", medicationPlanMapper.countActivePlans(userId));
 
         return buildSuccessResponse("allStatistics", result);
     }

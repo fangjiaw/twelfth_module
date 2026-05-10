@@ -1,263 +1,574 @@
-// 全局变量
 let currentUserId = 1;
 let currentDays = 7;
 let allCharts = {};
-let allData = {};
 
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化图表实例
+const userNames = {
+    1: '张三',
+    2: '李四',
+    3: '王五',
+    4: '赵六'
+};
+
+const chartTheme = {
+    ink: '#10201f',
+    soft: '#4c6462',
+    muted: '#839795',
+    line: '#dce8e6',
+    primary: '#0f9f8f',
+    blue: '#7197ee',
+    amber: '#f1a95d',
+    red: '#e3665d',
+    green: '#28a66e'
+};
+
+document.addEventListener('DOMContentLoaded', () => {
     initCharts();
+    bindEvents();
+    loadAllData();
+});
 
-    // 绑定时间切换事件
+function bindEvents() {
     document.querySelectorAll('.time-tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            currentDays = parseInt(this.dataset.days);
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.time-tab').forEach(item => item.classList.remove('active'));
+            tab.classList.add('active');
+            currentDays = Number(tab.dataset.days || 7);
             loadAllData();
         });
     });
 
-    // 绑定用户切换事件
-    document.getElementById('userSelect').addEventListener('change', function() {
-        currentUserId = parseInt(this.value);
+    const userSelect = document.getElementById('userSelect');
+    userSelect.addEventListener('change', () => {
+        currentUserId = Number(userSelect.value);
         loadAllData();
     });
 
-    // 加载初始数据
-    loadAllData();
-});
+    window.addEventListener('resize', resizeCharts);
+}
 
-// 初始化所有图表
 function initCharts() {
-    // 打卡率环形图
-    allCharts.checkIn = echarts.init(document.getElementById('checkInChart'));
-    // 漏服率环形图
-    allCharts.missed = echarts.init(document.getElementById('missedChart'));
-    // 趋势折线图
     allCharts.trend = echarts.init(document.getElementById('trendChart'));
-    // 时段分析柱状图
-    allCharts.timeSlot = echarts.init(document.getElementById('timeSlotChart'));
-    // 药品排行横向柱状图
+    allCharts.radar = echarts.init(document.getElementById('radarChart'));
     allCharts.drugRank = echarts.init(document.getElementById('drugRankChart'));
 
-    // 响应式调整
-    window.addEventListener('resize', function() {
-        Object.values(allCharts).forEach(chart => chart.resize());
+    allCharts.trend.setOption(getTrendBaseOption());
+    allCharts.radar.setOption(getRadarBaseOption());
+    allCharts.drugRank.setOption(getDrugRankBaseOption());
+}
+
+async function loadAllData() {
+    showLoading();
+    try {
+        const response = await fetch(`/api/statistics/all?userId=${currentUserId}&trendDays=${currentDays}&topDrugLimit=6`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || '统计接口返回失败');
+        }
+
+        const data = result.data.allStatistics || result.data;
+        updateDashboard(data);
+        renderCharts(data);
+    } catch (error) {
+        console.error('加载统计数据失败:', error);
+        renderLoadError();
+    } finally {
+        hideLoading();
+        resizeCharts();
+    }
+}
+
+function updateDashboard(data) {
+    const summary = data.summary || {};
+    const patientName = userNames[currentUserId] || `用户 ${currentUserId}`;
+    const checkInRate = toPercent(summary.checkInRate);
+    const complianceRate = toPercent(summary.complianceRate);
+    const missedRate = toPercent(summary.missedRate);
+    const todayPlan = Number(summary.todayPlanCount || 0);
+    const todayDone = Number(summary.todayDoneCount || 0);
+    const todayMissed = Number(summary.todayMissedCount || 0);
+    const pending = Math.max(0, todayPlan - todayDone - todayMissed);
+
+    setText('patientTitle', `${patientName}的今日用药概览`);
+    setText('activePlanText', `${data.activePlanCount || 0} 个`);
+    setText('pendingText', `${pending + todayMissed} 项`);
+    setText('healthStateText', getLevelText(complianceRate, todayPlan));
+
+    animateNumber('heroScore', todayPlan > 0 ? Math.round(complianceRate) : 0);
+    setText('heroGradeText', getLevelText(complianceRate, todayPlan));
+
+    animateNumber('todayPlan', todayPlan);
+    animateNumber('todayDone', todayDone);
+    animateNumber('todayMissed', todayMissed);
+    animateNumber('metricCheckIn', checkInRate, '%', 1);
+    animateNumber('metricCompliance', complianceRate, '%', 1);
+    animateNumber('metricMissed', missedRate, '%', 1);
+    animateNumber('metricConsecutive', Number(summary.consecutiveDays || 0), ' 天');
+    setText('metricLongest', `历史最长 ${summary.longestStreak || 0} 天`);
+
+    updatePlanList(data.todayPlans || []);
+    updateRecordTimeline(data.todayRecords || []);
+    updateAlertList(data.missedAlerts || []);
+
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+function updatePlanList(plans) {
+    const container = document.getElementById('planList');
+    if (!plans.length) {
+        container.innerHTML = '<div class="empty">暂无今日处方计划</div>';
+        return;
+    }
+
+    container.innerHTML = plans.slice(0, 5).map(plan => {
+        const dose = [plan.dosage, plan.unit].filter(Boolean).join('');
+        const description = dose || plan.drugSpecification || '剂量未填写';
+        return `
+            <article class="plan-item">
+                <div class="metric-icon blue"><i data-lucide="pill"></i></div>
+                <div class="plan-main">
+                    <strong>${escapeHtml(plan.drugName || '未知药品')}</strong>
+                    <span>${escapeHtml(description)} · ${escapeHtml(plan.frequency || '按医嘱')}</span>
+                </div>
+                <div class="time-chip">${escapeHtml(formatTime(plan.scheduledTime) || getSlotText(plan.timeSlot))}</div>
+            </article>
+        `;
+    }).join('');
+}
+
+function updateRecordTimeline(records) {
+    const container = document.getElementById('recordTimeline');
+    if (!records.length) {
+        container.innerHTML = '<div class="empty">暂无今日服药记录</div>';
+        return;
+    }
+
+    container.innerHTML = records.slice(0, 8).map(record => {
+        const status = getRecordStatus(record.status);
+        const lateText = record.lateMinutes ? `延迟 ${record.lateMinutes} 分钟` : (record.isOnTime === 1 ? '按时完成' : '等待更新');
+        return `
+            <article class="timeline-item">
+                <div class="status-dot ${status.className}"><i data-lucide="${status.icon}"></i></div>
+                <div class="timeline-main">
+                    <strong>${escapeHtml(record.drugName || '未知药品')}</strong>
+                    <span>${escapeHtml(formatDateTime(record.scheduledTime))} · ${escapeHtml(lateText)}</span>
+                </div>
+                <div class="badge">${escapeHtml(status.text)}</div>
+            </article>
+        `;
+    }).join('');
+}
+
+function updateAlertList(alerts) {
+    const container = document.getElementById('alertList');
+    if (!alerts.length) {
+        container.innerHTML = '<div class="empty">暂无漏服记录</div>';
+        return;
+    }
+
+    container.innerHTML = alerts.slice(0, 6).map(alert => {
+        const action = alert.suggestAction || '请联系医生确认补服方案';
+        const severity = getAlertSeverity(action);
+        const reason = alert.missedReason ? `原因：${alert.missedReason}` : '未填写漏服原因';
+        return `
+            <article class="alert-card">
+                <div class="metric-icon ${severity.color}">
+                    <i data-lucide="${severity.icon}"></i>
+                </div>
+                <div>
+                    <div class="alert-title">${escapeHtml(alert.drugName || '未知药品')}</div>
+                    <div class="alert-meta">
+                        <span>${escapeHtml(formatDateTime(alert.planTime))}</span>
+                        <span class="badge">${escapeHtml(severity.text)}</span>
+                    </div>
+                    <div class="alert-meta"><span>${escapeHtml(reason)}</span></div>
+                    <div class="alert-meta"><strong>${escapeHtml(action)}</strong></div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function renderCharts(data) {
+    renderTrendChart(data.trend || []);
+    renderRadarChart((data.summary || {}).timeSlotStats || {});
+    renderDrugRankChart(data.topDrugs || []);
+}
+
+function getTrendBaseOption() {
+    return {
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(255,255,255,.96)',
+            borderColor: chartTheme.line,
+            textStyle: { color: chartTheme.ink },
+            extraCssText: 'border-radius:14px;box-shadow:0 12px 30px rgba(19,73,67,.12);'
+        },
+        grid: { left: 42, right: 28, top: 34, bottom: 36 },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: [],
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: chartTheme.line } },
+            axisLabel: { color: chartTheme.muted, fontWeight: 700 }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            axisLabel: { formatter: '{value}%', color: chartTheme.muted, fontWeight: 700 },
+            splitLine: { lineStyle: { color: '#eee8de' } }
+        },
+        series: [
+            {
+                name: '完成率',
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 8,
+                data: [],
+                lineStyle: { width: 4, color: chartTheme.primary },
+                itemStyle: { color: chartTheme.primary, borderColor: '#fff', borderWidth: 3 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(15,159,143,.24)' },
+                        { offset: 1, color: 'rgba(15,159,143,0)' }
+                    ])
+                },
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: { color: 'rgba(40,166,110,.45)', type: 'dashed' },
+                    label: { formatter: '达标线 80%', color: chartTheme.green },
+                    data: [{ yAxis: 80 }]
+                }
+            },
+            {
+                name: '7 日均线',
+                type: 'line',
+                smooth: true,
+                symbol: 'none',
+                data: [],
+                lineStyle: { width: 2, color: chartTheme.blue, type: 'dashed' }
+            }
+        ]
+    };
+}
+
+function renderTrendChart(trend) {
+    const dates = trend.map(item => String(item.date || '').substring(5));
+    const rates = trend.map(item => Number(toPercent(item.completionRate).toFixed(1)));
+    const movingAverage = rates.map((_, index) => {
+        const start = Math.max(0, index - 6);
+        const slice = rates.slice(start, index + 1);
+        const value = slice.reduce((sum, item) => sum + Number(item), 0) / Math.max(slice.length, 1);
+        return Number(value.toFixed(1));
+    });
+
+    allCharts.trend.setOption({
+        xAxis: { data: dates },
+        series: [
+            { data: rates },
+            { data: movingAverage }
+        ]
     });
 }
 
-// 加载所有数据
-async function loadAllData() {
-    try {
-        const response = await fetch(`/api/statistics/all?userId=${currentUserId}&trendDays=${currentDays}&topDrugLimit=5`);
-        const result = await response.json();
-
-        if (result.success) {
-            allData = result.data;
-            updateUI(allData);
-            renderCharts(allData);
-        }
-    } catch (error) {
-        console.error('加载数据失败:', error);
-    }
-}
-
-// 更新界面数据
-function updateUI(data) {
-    const summary = data.summary || {};
-    const checkInRate = (summary.checkInRate || 0) * 100;
-    const missedRate = (summary.missedRate || 0) * 100;
-    const complianceRate = (summary.complianceRate || 0) * 100;
-
-    // 更新统计卡片
-    document.getElementById('checkInRate').textContent = checkInRate.toFixed(0) + '%';
-    document.getElementById('missedRate').textContent = missedRate.toFixed(0) + '%';
-    document.getElementById('complianceRate').textContent = complianceRate.toFixed(0) + '%';
-
-    // 设置达标等级样式
-    const complianceEl = document.getElementById('complianceRate');
-    complianceEl.className = 'value ' + (summary.complianceLevel || 'good');
-
-    const levelText = { excellent: '优秀', good: '良好', warning: '需改进' };
-    document.getElementById('complianceLevel').innerHTML =
-        `<span class="compliance-badge ${summary.complianceLevel || 'good'}">${levelText[summary.complianceLevel] || '未知'}</span>`;
-
-    // 连续打卡
-    document.getElementById('consecutiveDays').textContent = (summary.consecutiveDays || 0) + '天';
-    document.getElementById('longestStreak').textContent = '历史最长 ' + (summary.longestStreak || 0) + ' 天';
-
-    // 今日统计
-    document.getElementById('todayPlan').textContent = summary.todayPlanCount || 0;
-    document.getElementById('todayDone').textContent = summary.todayDoneCount || 0;
-
-    const missedEl = document.getElementById('todayMissed');
-    missedEl.textContent = summary.todayMissedCount || 0;
-    missedEl.className = 'value' + ((summary.todayMissedCount || 0) > 0 ? ' warning' : '');
-
-    // 时段统计
-    const timeSlot = summary.timeSlotStats || {};
-    document.getElementById('morningRate').textContent = ((timeSlot.morning || 0) * 100).toFixed(0);
-    document.getElementById('afternoonRate').textContent = ((timeSlot.afternoon || 0) * 100).toFixed(0);
-    document.getElementById('eveningRate').textContent = ((timeSlot.evening || 0) * 100).toFixed(0);
-
-    // 更新漏服提醒列表
-    updateAlertList(data.missedAlerts || []);
-}
-
-// 更新漏服提醒列表
-function updateAlertList(alerts) {
-    const container = document.getElementById('alertList');
-
-    if (!alerts || alerts.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#999;padding:40px;">暂无漏服记录，继续保持！</div>';
-        return;
-    }
-
-    container.innerHTML = alerts.map(alert => `
-        <div class="alert-item">
-            <div class="alert-info">
-                <div class="drug-name">${alert.drugName}</div>
-                <div class="plan-time">计划时间: ${formatDateTime(alert.planTime)}</div>
-            </div>
-            <div class="alert-action">${alert.suggestAction}</div>
-        </div>
-    `).join('');
-}
-
-// 渲染所有图表
-function renderCharts(data) {
-    renderCheckInChart(data.summary);
-    renderMissedChart(data.summary);
-    renderTrendChart(data.trend);
-    renderTimeSlotChart(data.summary);
-    renderDrugRankChart(data.topDrugs);
-}
-
-// 渲染打卡率环形图
-function renderCheckInChart(summary) {
-    const rate = summary.checkInRate || 0;
-    const option = {
-        tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
-        series: [{
-            type: 'pie',
-            radius: ['45%', '70%'],
-            center: ['50%', '50%'],
-            label: { show: true, formatter: '{d}%', fontSize: 14 },
-            data: [
-                { value: (rate * 100).toFixed(0), name: '已打卡', itemStyle: { color: '#52c41a' } },
-                { value: ((1 - rate) * 100).toFixed(0), name: '未打卡', itemStyle: { color: '#f0f0f0' } }
-            ]
-        }]
-    };
-    allCharts.checkIn.setOption(option);
-}
-
-// 渲染漏服率环形图
-function renderMissedChart(summary) {
-    const rate = summary.missedRate || 0;
-    const option = {
-        tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
-        series: [{
-            type: 'pie',
-            radius: ['45%', '70%'],
-            center: ['50%', '50%'],
-            label: { show: true, formatter: '{d}%', fontSize: 14 },
-            data: [
-                { value: (rate * 100).toFixed(0), name: '漏服', itemStyle: { color: '#f5222d' } },
-                { value: ((1 - rate) * 100).toFixed(0), name: '正常', itemStyle: { color: '#f0f0f0' } }
-            ]
-        }]
-    };
-    allCharts.missed.setOption(option);
-}
-
-// 渲染趋势折线图
-function renderTrendChart(trend) {
-    if (!trend || trend.length === 0) return;
-
-    const dates = trend.map(t => t.date.substring(5)); // MM-DD格式
-    const rates = trend.map(t => (t.completionRate * 100).toFixed(1));
-
-    const option = {
-        tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>完成率: ${p[0].value}%` },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'category', data: dates, boundaryGap: false },
-        yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' } },
-        series: [{
-            type: 'line',
-            smooth: true,
-            data: rates,
-            areaStyle: { color: 'rgba(102, 126, 234, 0.2)' },
-            lineStyle: { color: '#667eea', width: 2 },
-            itemStyle: { color: '#667eea' },
-            markLine: {
-                silent: true,
-                data: [{ yAxis: 80, lineStyle: { color: '#52c41a' }, name: '达标线' }]
-            }
-        }]
-    };
-    allCharts.trend.setOption(option);
-}
-
-// 渲染时段分析柱状图
-function renderTimeSlotChart(summary) {
-    const timeSlot = summary.timeSlotStats || {};
-    const option = {
-        tooltip: { trigger: 'axis', formatter: p => `${p[0].name}: ${p[0].value}%` },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'category', data: ['早间\n6-12点', '下午\n12-18点', '晚间\n18-24点'] },
-        yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' } },
-        series: [{
-            type: 'bar',
-            data: [
-                { value: ((timeSlot.morning || 0) * 100).toFixed(1), itemStyle: { color: '#36cfc9' } },
-                { value: ((timeSlot.afternoon || 0) * 100).toFixed(1), itemStyle: { color: '#597ef7' } },
-                { value: ((timeSlot.evening || 0) * 100).toFixed(1), itemStyle: { color: '#b37feb' } }
+function getRadarBaseOption() {
+    return {
+        tooltip: {
+            backgroundColor: 'rgba(255,255,255,.96)',
+            borderColor: chartTheme.line,
+            textStyle: { color: chartTheme.ink }
+        },
+        radar: {
+            indicator: [
+                { name: '早间', max: 100 },
+                { name: '午后', max: 100 },
+                { name: '晚间', max: 100 }
             ],
-            barWidth: '50%',
-            label: { show: true, position: 'top', formatter: '{c}%' }
-        }]
+            radius: '62%',
+            center: ['50%', '54%'],
+            axisName: { color: chartTheme.soft, fontWeight: 800 },
+            splitLine: { lineStyle: { color: '#deebe9' } },
+            axisLine: { lineStyle: { color: '#deebe9' } },
+            splitArea: { areaStyle: { color: ['rgba(255,255,255,.45)', 'rgba(255,255,255,.20)'] } }
+        },
+        series: [
+            {
+                type: 'radar',
+                data: [
+                    {
+                        value: [0, 0, 0],
+                        name: '实际完成率',
+                        symbol: 'circle',
+                        symbolSize: 6,
+                        lineStyle: { color: chartTheme.primary, width: 3 },
+                        itemStyle: { color: chartTheme.primary },
+                        areaStyle: { color: 'rgba(15,159,143,.20)' }
+                    },
+                    {
+                        value: [100, 100, 100],
+                        name: '理想状态',
+                        symbol: 'none',
+                        lineStyle: { color: 'rgba(113,151,238,.36)', type: 'dashed' },
+                        areaStyle: { color: 'rgba(113,151,238,.04)' }
+                    }
+                ]
+            }
+        ]
     };
-    allCharts.timeSlot.setOption(option);
 }
 
-// 渲染药品排行图
-function renderDrugRankChart(topDrugs) {
-    if (!topDrugs || topDrugs.length === 0) {
-        allCharts.drugRank.setOption({ title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } } });
-        return;
-    }
+function renderRadarChart(timeSlotStats) {
+    allCharts.radar.setOption({
+        series: [
+            {
+                data: [
+                    {
+                        value: [
+                            Number(toPercent(timeSlotStats.morning).toFixed(1)),
+                            Number(toPercent(timeSlotStats.afternoon).toFixed(1)),
+                            Number(toPercent(timeSlotStats.evening).toFixed(1))
+                        ],
+                        name: '实际完成率'
+                    },
+                    { value: [100, 100, 100], name: '理想状态' }
+                ]
+            }
+        ]
+    });
+}
 
-    const drugs = topDrugs.map(d => d.drugName);
-    const counts = topDrugs.map(d => d.usageCount);
-
-    const option = {
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        grid: { left: '3%', right: '8%', bottom: '3%', top: '3%', containLabel: true },
-        xAxis: { type: 'value' },
-        yAxis: { type: 'category', data: drugs.reverse(), axisLabel: { fontSize: 12 } },
-        series: [{
-            type: 'bar',
-            data: counts.reverse(),
-            itemStyle: {
-                color: function(params) {
-                    const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'];
-                    return colors[params.dataIndex % colors.length];
+function getDrugRankBaseOption() {
+    return {
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            backgroundColor: 'rgba(255,255,255,.96)',
+            borderColor: chartTheme.line,
+            textStyle: { color: chartTheme.ink }
+        },
+        grid: { left: 36, right: 16, top: 28, bottom: 56 },
+        xAxis: {
+            type: 'category',
+            data: [],
+            axisLabel: {
+                color: chartTheme.soft,
+                fontWeight: 800,
+                fontSize: 11,
+                interval: 0
+            },
+            axisLine: { show: false },
+            axisTick: { show: false }
+        },
+        yAxis: {
+            type: 'value',
+            max: 100,
+            axisLabel: { formatter: '{value}%', color: chartTheme.muted, fontWeight: 700, fontSize: 9 },
+            splitLine: { lineStyle: { color: '#eee8de' } },
+            axisLine: { show: false },
+            axisTick: { show: false }
+        },
+        series: [
+            {
+                name: '依从性',
+                type: 'bar',
+                data: [],
+                barWidth: 16,
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: '{c}%',
+                    color: chartTheme.soft,
+                    fontWeight: 800,
+                    fontSize: 10
+                },
+                itemStyle: {
+                    borderRadius: [8, 8, 0, 0],
+                    borderColor: 'transparent',
+                    borderWidth: 0
                 }
             },
-            label: { show: true, position: 'right', formatter: '{c} 次' }
-        }]
+            {
+                type: 'bar',
+                data: [],
+                barWidth: 16,
+                barGap: '-100%',
+                silent: true,
+                tooltip: { show: false },
+                itemStyle: { color: '#efe8dc', borderRadius: [8, 8, 0, 0] }
+            }
+        ]
     };
-    allCharts.drugRank.setOption(option);
 }
 
-// 格式化日期时间
-function formatDateTime(dateTime) {
-    if (!dateTime) return '--';
-    if (typeof dateTime === 'string') {
-        return dateTime.replace('T', ' ').substring(0, 16);
+function renderDrugRankChart(topDrugs) {
+    if (!topDrugs.length) {
+        allCharts.drugRank.setOption({
+            xAxis: { data: ['暂无数据'] },
+            series: [{ data: [0] }, { data: [100] }]
+        });
+        return;
     }
-    return dateTime;
+
+    const values = topDrugs.map(item => Number(toPercent(item.usageRate).toFixed(1)));
+
+    const drugNames = topDrugs.map(item => item.drugName || '未知药品');
+    const coloredData = values.map(v => ({
+        value: v,
+        itemStyle: {
+            color: drugColorForValue(v),
+            borderColor: 'transparent',
+            borderWidth: 0
+        }
+    }));
+
+    allCharts.drugRank.setOption({
+        xAxis: { data: drugNames },
+        series: [
+            { data: coloredData },
+            { data: topDrugs.map(() => 100) }
+        ]
+    });
+}
+
+function drugColorForValue(value) {
+    const v = Number(value || 0);
+    if (v >= 80) return chartTheme.green;
+    if (v >= 60) return chartTheme.amber;
+    return chartTheme.red;
+}
+
+function valueColor(params) {
+    const value = Number(params.value || 0);
+    if (value >= 80) {
+        return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: chartTheme.primary },
+            { offset: 1, color: chartTheme.green }
+        ]);
+    }
+    if (value >= 60) {
+        return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: chartTheme.amber },
+            { offset: 1, color: '#e9bd78' }
+        ]);
+    }
+    return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: chartTheme.red },
+        { offset: 1, color: '#e88983' }
+    ]);
+}
+
+function animateNumber(id, end, suffix = '', decimals = 0) {
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    const start = Number.parseFloat(element.dataset.value || '0');
+    const target = Number(end || 0);
+    const startTime = performance.now();
+    const duration = 620;
+
+    element.dataset.value = String(target);
+
+    function tick(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = start + (target - start) * eased;
+        element.textContent = `${value.toFixed(decimals)}${suffix}`;
+        if (progress < 1) requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+}
+
+function renderLoadError() {
+    setText('healthStateText', '连接失败');
+    setText('heroGradeText', '连接失败');
+    document.getElementById('alertList').innerHTML = '<div class="empty">后端接口暂时无法连接</div>';
+    document.getElementById('planList').innerHTML = '<div class="empty">处方计划暂时无法加载</div>';
+    document.getElementById('recordTimeline').innerHTML = '<div class="empty">用药时间线暂时无法加载</div>';
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'grid';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function resizeCharts() {
+    Object.values(allCharts).forEach(chart => chart.resize());
+}
+
+function toPercent(value) {
+    return Number(value || 0) * 100;
+}
+
+function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function getLevelText(rate, total) {
+    if (!total) return '暂无计划';
+    if (rate >= 80) return '达标良好';
+    if (rate >= 60) return '需要观察';
+    return '需要干预';
+}
+
+function getAlertSeverity(action) {
+    if (action.includes('尽快') || action.includes('补服')) {
+        return { text: '高优先级', color: 'red', icon: 'alarm-clock' };
+    }
+    if (action.includes('跳过') || action.includes('下次')) {
+        return { text: '需确认', color: 'amber', icon: 'circle-alert' };
+    }
+    return { text: '提醒', color: 'blue', icon: 'bell' };
+}
+
+function getRecordStatus(status) {
+    switch (Number(status)) {
+        case 1:
+            return { text: '已服', className: 'done', icon: 'check' };
+        case 2:
+            return { text: '漏服', className: 'missed', icon: 'x' };
+        case 3:
+            return { text: '补服', className: 'supplement', icon: 'rotate-ccw' };
+        default:
+            return { text: '待服', className: 'pending', icon: 'clock-3' };
+    }
+}
+
+function getSlotText(slot) {
+    if (slot === 'morning') return '早间';
+    if (slot === 'afternoon') return '午后';
+    if (slot === 'evening') return '晚间';
+    return '按时段';
+}
+
+function formatTime(value) {
+    if (!value) return '';
+    return String(value).substring(0, 5);
+}
+
+function formatDateTime(value) {
+    if (!value) return '计划时间：--';
+    return `计划时间：${String(value).replace('T', ' ').substring(0, 16)}`;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }

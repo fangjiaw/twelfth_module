@@ -57,4 +57,9 @@ application*.properties
 
 # Claude Code
 CLAUDE.md
+.claude/settings.local.json
+.agents/
 /精准用药课程大作业_学生版_46人.docx
+
+# Codex
+AGENTS.md
