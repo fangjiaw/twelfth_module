@@ -42,7 +42,7 @@ public class StatisticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         Double rate = statisticsService.getCheckInRate(userId, startDate, endDate);
-        return buildSuccessResponse("checkInRate", rate);
+        return buildSuccessResponse(rate);
     }
 
     /**
@@ -54,7 +54,7 @@ public class StatisticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         Double rate = statisticsService.getMissedRate(userId, startDate, endDate);
-        return buildSuccessResponse("missedRate", rate);
+        return buildSuccessResponse(rate);
     }
 
     /**
@@ -66,7 +66,7 @@ public class StatisticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         Double rate = statisticsService.getComplianceRate(userId, startDate, endDate);
-        return buildSuccessResponse("complianceRate", rate);
+        return buildSuccessResponse(rate);
     }
 
     /**
@@ -75,7 +75,7 @@ public class StatisticsController {
     @GetMapping("/consecutiveDays")
     public Map<String, Object> getConsecutiveDays(@RequestParam Long userId) {
         Integer days = statisticsService.getConsecutiveDays(userId);
-        return buildSuccessResponse("consecutiveDays", days);
+        return buildSuccessResponse(days);
     }
 
     /**
@@ -84,7 +84,7 @@ public class StatisticsController {
     @GetMapping("/longestStreak")
     public Map<String, Object> getLongestStreak(@RequestParam Long userId) {
         Integer days = statisticsService.getLongestStreak(userId);
-        return buildSuccessResponse("longestStreak", days);
+        return buildSuccessResponse(days);
     }
 
     /**
@@ -95,7 +95,7 @@ public class StatisticsController {
             @RequestParam Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         Map<String, Double> stats = statisticsService.getTimeSlotStats(userId, date);
-        return buildSuccessResponse("timeSlotStats", stats);
+        return buildSuccessResponse(stats);
     }
 
     /**
@@ -106,7 +106,7 @@ public class StatisticsController {
             @RequestParam Long userId,
             @RequestParam(defaultValue = "7") Integer days) {
         List<DailyStats> trend = statisticsService.getDailyTrend(userId, days);
-        return buildSuccessResponse("trend", trend);
+        return buildSuccessResponse(trend);
     }
 
     /**
@@ -117,7 +117,7 @@ public class StatisticsController {
             @RequestParam Long userId,
             @RequestParam(defaultValue = "5") Integer limit) {
         List<DrugUsageStat> topDrugs = statisticsService.getTopDrugs(userId, limit);
-        return buildSuccessResponse("topDrugs", topDrugs);
+        return buildSuccessResponse(topDrugs);
     }
 
     /**
@@ -129,7 +129,7 @@ public class StatisticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         List<MissedAlert> alerts = statisticsService.getMissedAlerts(userId, startDate, endDate);
-        return buildSuccessResponse("missedAlerts", alerts);
+        return buildSuccessResponse(alerts);
     }
 
     /**
@@ -138,7 +138,7 @@ public class StatisticsController {
     @GetMapping("/summary")
     public Map<String, Object> getSummary(@RequestParam Long userId) {
         StatisticsSummary summary = statisticsService.getStatisticsSummary(userId);
-        return buildSuccessResponse("summary", summary);
+        return buildSuccessResponse(summary);
     }
 
     /**
@@ -147,7 +147,7 @@ public class StatisticsController {
     @GetMapping("/today")
     public Map<String, Object> getTodayStats(@RequestParam Long userId) {
         DailyStats todayStats = statisticsService.getTodayStats(userId);
-        return buildSuccessResponse("todayStats", todayStats);
+        return buildSuccessResponse(todayStats);
     }
 
     /**
@@ -165,7 +165,7 @@ public class StatisticsController {
         result.put("todayRecords", todayRecords);
         result.put("activePlanCount", medicationPlanMapper.countActivePlans(userId));
 
-        return buildSuccessResponse("workspace", result);
+        return buildSuccessResponse(result);
     }
 
     /**
@@ -188,11 +188,10 @@ public class StatisticsController {
         result.put("todayRecords", medicationRecordMapper.selectByUserIdAndDate(userId, today));
         result.put("activePlanCount", medicationPlanMapper.countActivePlans(userId));
 
-        return buildSuccessResponse("allStatistics", result);
+        return buildSuccessResponse(result);
     }
 
-    @SuppressWarnings("unused")
-    private Map<String, Object> buildSuccessResponse(String key, Object data) {
+    private Map<String, Object> buildSuccessResponse(Object data) {
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("success", true);
         response.put("code", 200);

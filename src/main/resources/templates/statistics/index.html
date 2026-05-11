@@ -125,9 +125,10 @@
 
         .workspace {
             min-width: 0;
+            min-height: 0;
             padding: 40px 32px;
-            display: grid;
-            grid-template-rows: auto minmax(0, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 20px;
         }
 
@@ -217,6 +218,7 @@
                 "metrics drugs alerts";
             gap: 20px;
             min-height: 0;
+            flex: 1;
         }
 
         .panel {
@@ -262,8 +264,10 @@
         .subtext {
             margin-top: 4px;
             color: var(--muted);
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
         }
 
         .profile .subtext { color: rgba(255,255,255,.62); }
@@ -546,6 +550,96 @@
             font-weight: 800;
         }
 
+        /* 多视图切换 */
+        .view { display: none; }
+        .view.active { display: grid; grid-template-rows: auto 1fr; gap: 20px; min-height: 0; flex: 1; }
+
+        .view-head {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .view-title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--sage);
+        }
+        .view-sub {
+            color: var(--soft);
+            font-size: 13px;
+            font-weight: 700;
+            padding-bottom: 2px;
+        }
+
+        .view-body {
+            min-height: 0;
+            overflow-y: auto;
+        }
+        .view-body::-webkit-scrollbar { width: 0; height: 0; }
+
+        /* 计划列表卡片 */
+        .plan-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 20px;
+            background: var(--paper);
+            box-shadow: var(--soft-shadow);
+            margin-bottom: 10px;
+        }
+        .plan-card strong { font-size: 15px; color: var(--ink); }
+        .plan-card .plan-meta { margin-top: 4px; font-size: 12px; color: var(--soft); font-weight: 700; display: flex; gap: 14px; flex-wrap: wrap; }
+        .plan-card .plan-tag { padding: 6px 10px; border-radius: 999px; background: var(--mint); color: var(--sage); font-size: 11px; font-weight: 800; white-space: nowrap; }
+
+        /* 药品网格 */
+        .drug-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-content: start; }
+        .drug-card {
+            padding: 16px 18px;
+            border-radius: 20px;
+            background: var(--paper);
+            box-shadow: var(--soft-shadow);
+        }
+        .drug-card .drug-name { font-size: 16px; font-weight: 800; color: var(--sage); }
+        .drug-card .drug-spec { margin-top: 6px; font-size: 12px; color: var(--soft); font-weight: 700; }
+        .drug-card .drug-row { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .drug-card .drug-chip {
+            padding: 4px 8px; border-radius: 999px;
+            background: var(--mint); color: var(--sage);
+            font-size: 10px; font-weight: 800;
+        }
+
+        /* 提醒列表 */
+        .alert-item {
+            display: grid; grid-template-columns: 36px 1fr auto;
+            align-items: start; gap: 10px;
+            padding: 12px 14px; border-radius: 18px;
+            background: var(--paper); box-shadow: var(--soft-shadow);
+            margin-bottom: 8px;
+        }
+        .alert-item .alert-icon { width: 36px; height: 36px; border-radius: 13px; display: grid; place-items: center; }
+        .alert-item .alert-info strong { display: block; font-size: 14px; color: var(--ink); }
+        .alert-item .alert-info .alert-detail { margin-top: 3px; font-size: 11px; color: var(--soft); font-weight: 700; }
+        .alert-item .alert-badge { padding: 5px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+
+        /* 档案卡片 */
+        .profile-card {
+            max-width: 620px; padding: 24px 28px; border-radius: 24px;
+            background: var(--sage); color: #ffffff; box-shadow: var(--shadow);
+        }
+        .profile-card h3 { margin: 0 0 6px; font-size: 32px; font-weight: 800; }
+        .profile-card .profile-row { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .profile-card .profile-field label { display: block; font-size: 10px; opacity: .65; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+        .profile-card .profile-field span { display: block; margin-top: 2px; font-size: 15px; font-weight: 700; }
+        .profile-card .profile-tags { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .profile-card .profile-tag { padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 12px; font-weight: 800; }
+
         #loadingOverlay {
             display: none;
             position: fixed;
@@ -719,7 +813,7 @@
                 <div class="panel-head">
                     <div>
                         <div class="panel-title"><span class="icon-box"><i data-lucide="activity"></i></span>依从性趋势</div>
-                        <div class="subtext">Completion rate by medication_record</div>
+                        <div class="subtext">Completion Rate by Record</div>
                     </div>
                 </div>
                 <div class="chart" id="trendChart"></div>
@@ -729,7 +823,7 @@
                 <div class="panel-head">
                     <div>
                         <div class="panel-title"><span class="icon-box"><i data-lucide="clipboard-list"></i></span>今日处方</div>
-                        <div class="subtext">Active medication_plan</div>
+                        <div class="subtext">Active Medication Plan</div>
                     </div>
                 </div>
                 <div class="plan-list" id="planList">
@@ -741,7 +835,7 @@
                 <div class="panel-head">
                     <div>
                         <div class="panel-title"><span class="icon-box"><i data-lucide="list-checks"></i></span>用药时间线</div>
-                        <div class="subtext">Today medication_record status</div>
+                        <div class="subtext">Today Record Status</div>
                     </div>
                 </div>
                 <div class="timeline-list" id="recordTimeline">
@@ -802,6 +896,50 @@
                 </div>
             </section>
         </section>
+
+        <!-- 计划视图 -->
+        <section class="view" id="planView">
+            <div class="view-head">
+                <h2 class="view-title"><span class="icon-box"><i data-lucide="calendar-clock"></i></span>我的处方计划</h2>
+                <span class="view-sub">Active Medication Plans</span>
+            </div>
+            <div class="view-body" id="planViewBody">
+                <div class="empty">加载中...</div>
+            </div>
+        </section>
+
+        <!-- 药品视图 -->
+        <section class="view" id="drugView">
+            <div class="view-head">
+                <h2 class="view-title"><span class="icon-box"><i data-lucide="pill"></i></span>药品目录</h2>
+                <span class="view-sub">Drug Catalog</span>
+            </div>
+            <div class="view-body drug-grid" id="drugViewBody">
+                <div class="empty">加载中...</div>
+            </div>
+        </section>
+
+        <!-- 提醒视图 -->
+        <section class="view" id="alertView">
+            <div class="view-head">
+                <h2 class="view-title"><span class="icon-box"><i data-lucide="bell-ring"></i></span>漏服提醒中心</h2>
+                <span class="view-sub">Missed Medication Alerts</span>
+            </div>
+            <div class="view-body" id="alertViewBody">
+                <div class="empty">加载中...</div>
+            </div>
+        </section>
+
+        <!-- 档案视图 -->
+        <section class="view" id="profileView">
+            <div class="view-head">
+                <h2 class="view-title"><span class="icon-box"><i data-lucide="file-heart"></i></span>用户档案</h2>
+                <span class="view-sub">Patient Profile</span>
+            </div>
+            <div class="view-body" id="profileViewBody">
+                <div class="empty">加载中...</div>
+            </div>
+        </section>
     </main>
 </div>
 
@@ -809,7 +947,7 @@
     <div class="loader">正在加载统计数据...</div>
 </div>
 
-<script src="/js/statistics.js?v=20260510"></script>
+<script src="/js/statistics.js?v=20260512"></script>
 <script>
     if (window.lucide) {
         lucide.createIcons();

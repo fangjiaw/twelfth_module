@@ -49,14 +49,6 @@
         ORDER BY mp.scheduled_time ASC
     </select>
 
-    <!-- 查询单个计划 -->
-    <select id="selectById" resultMap="DetailResultMap">
-        SELECT mp.*, d.drug_name, d.specification as drug_specification
-        FROM medication_plan mp
-        LEFT JOIN drug d ON mp.drug_id = d.id
-        WHERE mp.id = #{id}
-    </select>
-
     <!-- 统计用户活跃计划数量 -->
     <select id="countActivePlans" resultType="java.lang.Integer">
         SELECT COUNT(*)

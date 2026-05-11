@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.twelfth_module.mapper.UserMapper">
+
+    <resultMap id="BaseResultMap" type="org.example.twelfth_module.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="real_name" property="realName"/>
+        <result column="age" property="age"/>
+        <result column="gender" property="gender"/>
+        <result column="phone" property="phone"/>
+        <result column="allergy_history" property="allergyHistory"/>
+        <result column="medical_history" property="medicalHistory"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM user WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM user WHERE status = 1 ORDER BY id
+    </select>
+
+</mapper>

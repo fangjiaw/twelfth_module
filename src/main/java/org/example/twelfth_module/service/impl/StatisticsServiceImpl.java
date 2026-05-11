@@ -11,8 +11,16 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -145,7 +153,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         return result;
     }
 
-    private String getTimeSlot(java.time.LocalTime time) {
+    private String getTimeSlot(LocalTime time) {
         int hour = time.getHour();
         if (hour >= 6 && hour <= 11) {
             return "morning";

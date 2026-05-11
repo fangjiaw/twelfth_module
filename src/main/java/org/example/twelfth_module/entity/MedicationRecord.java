@@ -24,5 +24,4 @@ public class MedicationRecord {
 
     // 关联查询用
     private String drugName;
-    private String planTimeSlot;
 }

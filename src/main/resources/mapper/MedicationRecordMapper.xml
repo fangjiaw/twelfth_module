@@ -23,24 +23,11 @@
 
     <resultMap id="DetailResultMap" type="org.example.twelfth_module.entity.MedicationRecord" extends="BaseResultMap">
         <result column="drug_name" property="drugName"/>
-        <result column="plan_time_slot" property="planTimeSlot"/>
     </resultMap>
-
-    <!-- 查询用户在指定日期范围内的服药记录 -->
-    <select id="selectByUserIdAndDateRange" resultMap="DetailResultMap">
-        SELECT mr.*, d.drug_name, mp.time_slot as plan_time_slot
-        FROM medication_record mr
-        LEFT JOIN drug d ON mr.drug_id = d.id
-        LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
-        WHERE mr.user_id = #{userId}
-        AND mr.record_date BETWEEN #{startDate} AND #{endDate}
-        ORDER BY mr.record_date DESC, mr.scheduled_time DESC
-    </select>
 
     <!-- 查询用户在指定日期的服药记录 -->
     <select id="selectByUserIdAndDate" resultMap="DetailResultMap">
-        SELECT mr.*, d.drug_name, mp.time_slot as plan_time_slot
-        FROM medication_record mr
+        SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
         LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
@@ -74,15 +61,6 @@
         AND status = 2
     </select>
 
-    <!-- 按状态统计 -->
-    <select id="countByStatus" resultType="java.lang.Integer">
-        SELECT COUNT(*)
-        FROM medication_record
-        WHERE user_id = #{userId}
-        AND record_date BETWEEN #{startDate} AND #{endDate}
-        AND status = #{status}
-    </select>
-
     <!-- 获取按时服用的数量（达标：已服且is_on_time=1） -->
     <select id="countOnTime" resultType="java.lang.Integer">
         SELECT COUNT(*)
@@ -95,8 +73,7 @@
 
     <!-- 按日期分组统计 -->
     <select id="selectDailyStats" resultMap="DetailResultMap">
-        SELECT mr.*, d.drug_name, mp.time_slot as plan_time_slot
-        FROM medication_record mr
+        SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
         LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
@@ -134,8 +111,7 @@
 
     <!-- 获取漏服记录列表 -->
     <select id="selectMissedRecords" resultMap="DetailResultMap">
-        SELECT mr.*, d.drug_name, mp.time_slot as plan_time_slot
-        FROM medication_record mr
+        SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
         LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}

@@ -446,26 +446,6 @@ function drugColorForValue(value) {
     return chartTheme.red;
 }
 
-function valueColor(params) {
-    const value = Number(params.value || 0);
-    if (value >= 80) {
-        return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: chartTheme.primary },
-            { offset: 1, color: chartTheme.green }
-        ]);
-    }
-    if (value >= 60) {
-        return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: chartTheme.amber },
-            { offset: 1, color: '#e9bd78' }
-        ]);
-    }
-    return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: chartTheme.red },
-        { offset: 1, color: '#e88983' }
-    ]);
-}
-
 function animateNumber(id, end, suffix = '', decimals = 0) {
     const element = document.getElementById(id);
     if (!element) return;
@@ -571,4 +551,165 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+// ========== 多视图切换 ==========
+
+let activeView = 'dashboard';
+
+document.querySelectorAll('.rail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const title = btn.getAttribute('title') || '';
+        let targetView = 'dashboard';
+        if (title === '计划') targetView = 'plan';
+        else if (title === '药品') targetView = 'drug';
+        else if (title === '提醒') targetView = 'alert';
+        else if (title === '档案') targetView = 'profile';
+
+        switchView(targetView);
+    });
+});
+
+function switchView(view) {
+    if (view === activeView) return;
+    activeView = view;
+
+    // 更新侧边栏高亮
+    document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
+    const titles = { dashboard: '驾驶舱', plan: '计划', drug: '药品', alert: '提醒', profile: '档案' };
+    document.querySelectorAll('.rail-btn').forEach(b => {
+        if (b.getAttribute('title') === titles[view]) b.classList.add('active');
+    });
+
+    const board = document.querySelector('.board');
+    const topbar = document.querySelector('.topbar');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+    if (view === 'dashboard') {
+        board.style.display = '';
+        topbar.style.display = '';
+    } else {
+        board.style.display = 'none';
+        topbar.style.display = 'none';
+        const viewEl = document.getElementById(view + 'View');
+        if (viewEl) viewEl.classList.add('active');
+        loadViewData(view);
+    }
+}
+
+function loadViewData(view) {
+    switch (view) {
+        case 'plan': loadPlanView(); break;
+        case 'drug': loadDrugView(); break;
+        case 'alert': loadAlertView(); break;
+        case 'profile': loadProfileView(); break;
+    }
+}
+
+async function loadPlanView() {
+    const container = document.getElementById('planViewBody');
+    try {
+        const res = await fetch('/api/plans?userId=' + currentUserId);
+        const json = await res.json();
+        const plans = json.data || [];
+        if (!plans.length) {
+            container.innerHTML = '<div class="empty">暂无活跃处方计划</div>';
+            return;
+        }
+        container.innerHTML = plans.map(p => {
+            const dose = [p.dosage, p.unit].filter(Boolean).join('');
+            return '<div class="plan-card">'
+                + '<div><strong>' + escapeHtml(p.drugName || '未知药品') + '</strong>'
+                + '<div class="plan-meta">'
+                + '<span>' + escapeHtml(dose || '--') + '</span>'
+                + '<span>' + escapeHtml(p.frequency || '--') + '</span>'
+                + '<span>' + escapeHtml(getSlotText(p.timeSlot) || '--') + '</span>'
+                + '</div></div>'
+                + '<div class="plan-tag">' + escapeHtml(formatTime(p.scheduledTime) || '--') + '</div>'
+                + '</div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="empty">加载失败，请稍后重试</div>';
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+async function loadDrugView() {
+    const container = document.getElementById('drugViewBody');
+    try {
+        const res = await fetch('/api/drugs');
+        const json = await res.json();
+        const drugs = json.data || [];
+        if (!drugs.length) {
+            container.innerHTML = '<div class="empty">暂无药品数据</div>';
+            return;
+        }
+        container.innerHTML = drugs.map(d => {
+            return '<div class="drug-card">'
+                + '<div class="drug-name">' + escapeHtml(d.drugName || '--') + '</div>'
+                + '<div class="drug-spec">' + escapeHtml(d.specification || '--') + '</div>'
+                + '<div class="drug-row">'
+                + '<span class="drug-chip">' + escapeHtml(d.manufacturer || '--') + '</span>'
+                + '<span class="drug-chip">' + escapeHtml(d.category || '--') + '</span>'
+                + (d.genericName ? '<span class="drug-chip">' + escapeHtml(d.genericName) + '</span>' : '')
+                + '</div></div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="empty">加载失败，请稍后重试</div>';
+    }
+}
+
+async function loadAlertView() {
+    const container = document.getElementById('alertViewBody');
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const past = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        const res = await fetch('/api/statistics/missedAlerts?userId=' + currentUserId + '&startDate=' + past + '&endDate=' + today);
+        const json = await res.json();
+        const alerts = json.data || [];
+        if (!alerts.length) {
+            container.innerHTML = '<div class="empty">暂无漏服记录</div>';
+            return;
+        }
+        container.innerHTML = alerts.map(a => {
+            const sev = getAlertSeverity(a.suggestAction || '');
+            return '<div class="alert-item">'
+                + '<div class="alert-icon" style="background:' + (sev.color === 'red' ? '#e3665d' : sev.color === 'amber' ? '#f1a95d' : '#7197ee') + ';color:#fff;display:grid;place-items:center;"><i data-lucide="' + sev.icon + '"></i></div>'
+                + '<div class="alert-info"><strong>' + escapeHtml(a.drugName || '未知药品') + '</strong>'
+                + '<div class="alert-detail">' + escapeHtml(formatDateTime(a.planTime)) + '</div>'
+                + '<div class="alert-detail">' + escapeHtml(a.missedReason || '未填写原因') + '</div>'
+                + '<div class="alert-detail" style="color:' + chartTheme.sage + '">' + escapeHtml(a.suggestAction || '请联系医生确认') + '</div>'
+                + '</div>'
+                + '<div class="alert-badge" style="background:' + (sev.color === 'red' ? '#fce4e4' : sev.color === 'amber' ? '#fef3e4' : '#e4ecfc') + ';color:' + (sev.color === 'red' ? '#c0392b' : sev.color === 'amber' ? '#b8731b' : '#2b5ec0') + '">' + escapeHtml(sev.text) + '</div>'
+                + '</div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="empty">加载失败，请稍后重试</div>';
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+async function loadProfileView() {
+    const container = document.getElementById('profileViewBody');
+    try {
+        const res = await fetch('/api/users/' + currentUserId);
+        const json = await res.json();
+        const user = json.data || {};
+        const genderText = user.gender === 1 ? '男' : user.gender === 0 ? '女' : '--';
+        container.innerHTML = '<div class="profile-card">'
+            + '<h3>' + escapeHtml(user.realName || '用户 #' + currentUserId) + '</h3>'
+            + '<div style="font-size:13px;opacity:.7;font-weight:700;">' + escapeHtml(user.username || '--') + '</div>'
+            + '<div class="profile-row">'
+            + '<div class="profile-field"><label>年龄</label><span>' + (user.age || '--') + ' 岁</span></div>'
+            + '<div class="profile-field"><label>性别</label><span>' + genderText + '</span></div>'
+            + '<div class="profile-field"><label>手机</label><span>' + escapeHtml(user.phone || '--') + '</span></div>'
+            + '<div class="profile-field"><label>状态</label><span>' + (user.status === 1 ? '正常' : '禁用') + '</span></div>'
+            + '</div>'
+            + '<div class="profile-tags">'
+            + '<span class="profile-tag">过敏史：' + escapeHtml(user.allergyHistory || '无') + '</span>'
+            + '<span class="profile-tag">病史：' + escapeHtml(user.medicalHistory || '无') + '</span>'
+            + '</div></div>';
+    } catch (e) {
+        container.innerHTML = '<div class="empty">加载失败，请稍后重试</div>';
+    }
 }

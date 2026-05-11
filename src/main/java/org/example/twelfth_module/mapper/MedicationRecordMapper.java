@@ -11,14 +11,6 @@ import java.util.List;
 public interface MedicationRecordMapper {
 
     /**
-     * 查询用户在指定日期范围内的服药记录
-     */
-    List<MedicationRecord> selectByUserIdAndDateRange(
-            @Param("userId") Long userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
-
-    /**
      * 查询用户在指定日期的服药记录
      */
     List<MedicationRecord> selectByUserIdAndDate(
@@ -48,15 +40,6 @@ public interface MedicationRecordMapper {
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
-
-    /**
-     * 按状态统计
-     */
-    Integer countByStatus(
-            @Param("userId") Long userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("status") Integer status);
 
     /**
      * 获取按时服用的数量（达标）

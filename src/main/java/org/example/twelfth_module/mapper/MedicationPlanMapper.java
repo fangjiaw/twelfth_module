@@ -22,11 +22,6 @@ public interface MedicationPlanMapper {
             @Param("date") LocalDate date);
 
     /**
-     * 查询单个计划
-     */
-    MedicationPlan selectById(@Param("id") Long id);
-
-    /**
      * 统计用户活跃计划数量
      */
     Integer countActivePlans(@Param("userId") Long userId);
