@@ -56,7 +56,7 @@
 | 构建工具 | Maven | — |
 | 运行环境 | Java 17 | — |
 
-中间件（Redis、RocketMQ、MinIO）通过 Docker 统一部署于虚拟机节点 `192.168.100.128`，数据库运行于宿主机端口映射 `3307`。
+中间件（Redis、RocketMQ、MinIO）通过 Docker 统一部署于内网虚拟机，数据库运行于非标准端口。
 
 ---
 
@@ -65,7 +65,7 @@
 ### 前置条件
 - JDK 17+
 - Maven 3.6+
-- Docker 虚拟机 `192.168.100.128` 已启动（确保 MySQL、Redis、RocketMQ、MinIO 容器运行中）
+- Docker 环境已启动（确保 MySQL、Redis、RocketMQ、MinIO 容器运行中）
 - 数据库 `twelfth_module` 已建表并导入测试数据
 
 ### 启动步骤
@@ -91,12 +91,12 @@ mvn spring-boot:run
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://192.168.100.128:3307/twelfth_module
-    username: root
-    password: root
+    url: jdbc:mysql://<db-host>:<db-port>/twelfth_module
+    username: <your-username>
+    password: <your-password>
   data:
     redis:
-      host: 192.168.100.128
+      host: <redis-host>
       port: 6379
 
 mybatis:
@@ -105,12 +105,12 @@ mybatis:
     map-underscore-to-camel-case: true
 
 rocketmq:
-  namesrv-addr: 192.168.100.128:9876
+  namesrv-addr: <rocketmq-host>:9876
 
 minio:
-  endpoint: http://192.168.100.128:9000
-  access-key: minioadmin
-  secret-key: minioadmin
+  endpoint: http://<minio-host>:9000
+  access-key: <your-access-key>
+  secret-key: <your-secret-key>
 
 server:
   port: 8080
