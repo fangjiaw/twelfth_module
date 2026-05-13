@@ -29,7 +29,6 @@
     <select id="selectByUserIdAndDate" resultMap="DetailResultMap">
         SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
-        LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date = #{recordDate}
         ORDER BY mr.scheduled_time
@@ -75,7 +74,6 @@
     <select id="selectDailyStats" resultMap="DetailResultMap">
         SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
-        LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date BETWEEN #{startDate} AND #{endDate}
         ORDER BY mr.record_date, mr.scheduled_time
@@ -96,12 +94,7 @@
 
     <!-- 按时段分组统计（早/中/晚） -->
     <select id="selectTimeSlotStats" resultMap="DetailResultMap">
-        SELECT mr.*, d.drug_name,
-               CASE
-                   WHEN HOUR(mr.scheduled_time) BETWEEN 6 AND 11 THEN 'morning'
-                   WHEN HOUR(mr.scheduled_time) BETWEEN 12 AND 17 THEN 'afternoon'
-                   ELSE 'evening'
-               END as time_slot
+        SELECT mr.*, d.drug_name
         FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
         WHERE mr.user_id = #{userId}
@@ -113,7 +106,6 @@
     <select id="selectMissedRecords" resultMap="DetailResultMap">
         SELECT mr.*, d.drug_name        FROM medication_record mr
         LEFT JOIN drug d ON mr.drug_id = d.id
-        LEFT JOIN medication_plan mp ON mr.plan_id = mp.id
         WHERE mr.user_id = #{userId}
         AND mr.record_date BETWEEN #{startDate} AND #{endDate}
         AND mr.status = 2

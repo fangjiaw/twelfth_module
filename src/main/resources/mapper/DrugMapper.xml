@@ -22,8 +22,5 @@
         SELECT * FROM drug WHERE status = 1 ORDER BY drug_name
     </select>
 
-    <select id="selectById" resultMap="BaseResultMap">
-        SELECT * FROM drug WHERE id = #{id}
-    </select>
 
 </mapper>

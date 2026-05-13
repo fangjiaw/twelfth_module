@@ -9,6 +9,4 @@ import java.util.List;
 public interface DrugMapper {
 
     List<Drug> selectAll();
-
-    Drug selectById(Long id);
 }

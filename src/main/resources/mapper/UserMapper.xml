@@ -22,8 +22,5 @@
         SELECT * FROM user WHERE id = #{id}
     </select>
 
-    <select id="selectAll" resultMap="BaseResultMap">
-        SELECT * FROM user WHERE status = 1 ORDER BY id
-    </select>
 
 </mapper>

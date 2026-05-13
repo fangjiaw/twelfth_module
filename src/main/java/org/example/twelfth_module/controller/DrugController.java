@@ -29,12 +29,4 @@ public class DrugController {
         return result;
     }
 
-    @GetMapping("/{id}")
-    public Map<String, Object> getDrugById(@PathVariable Long id) {
-        Drug drug = drugMapper.selectById(id);
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("data", drug);
-        return result;
-    }
 }
