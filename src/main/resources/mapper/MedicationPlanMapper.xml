@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="org.example.twelfth_module.mapper.MedicationPlanMapper">
+<mapper namespace="org.example.medpilot.mapper.MedicationPlanMapper">
 
-    <resultMap id="BaseResultMap" type="org.example.twelfth_module.entity.MedicationPlan">
+    <resultMap id="BaseResultMap" type="org.example.medpilot.entity.MedicationPlan">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
         <result column="drug_id" property="drugId"/>
@@ -21,7 +21,7 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
-    <resultMap id="DetailResultMap" type="org.example.twelfth_module.entity.MedicationPlan" extends="BaseResultMap">
+    <resultMap id="DetailResultMap" type="org.example.medpilot.entity.MedicationPlan" extends="BaseResultMap">
         <result column="drug_name" property="drugName"/>
         <result column="drug_specification" property="drugSpecification"/>
     </resultMap>

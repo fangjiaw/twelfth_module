@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="org.example.twelfth_module.mapper.MedicationRecordMapper">
+<mapper namespace="org.example.medpilot.mapper.MedicationRecordMapper">
 
-    <resultMap id="BaseResultMap" type="org.example.twelfth_module.entity.MedicationRecord">
+    <resultMap id="BaseResultMap" type="org.example.medpilot.entity.MedicationRecord">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
         <result column="plan_id" property="planId"/>
@@ -21,7 +21,7 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
-    <resultMap id="DetailResultMap" type="org.example.twelfth_module.entity.MedicationRecord" extends="BaseResultMap">
+    <resultMap id="DetailResultMap" type="org.example.medpilot.entity.MedicationRecord" extends="BaseResultMap">
         <result column="drug_name" property="drugName"/>
     </resultMap>
 
@@ -80,7 +80,7 @@
     </select>
 
     <!-- 按药品统计使用次数 -->
-    <select id="selectDrugUsageStats" resultType="org.example.twelfth_module.dto.DrugUsageStat">
+    <select id="selectDrugUsageStats" resultType="org.example.medpilot.dto.DrugUsageStat">
         SELECT mr.drug_id as drugId, d.drug_name as drugName, d.specification as specification,
                COUNT(*) as usageCount
         FROM medication_record mr

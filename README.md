@@ -66,14 +66,14 @@
 - JDK 17+
 - Maven 3.6+
 - Docker 环境已启动（确保 MySQL、Redis、RocketMQ、MinIO 容器运行中）
-- 数据库 `twelfth_module` 已建表并导入测试数据
+- 数据库 `med-pilot` 已建表并导入测试数据
 
 ### 启动步骤
 
 ```bash
 # 1. 克隆项目
 git clone <repo-url>
-cd twelfth_module
+cd med-pilot
 
 # 2. 编译运行
 mvn spring-boot:run
@@ -91,7 +91,7 @@ mvn spring-boot:run
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://<db-host>:<db-port>/twelfth_module
+    url: jdbc:mysql://<db-host>:<db-port>/med-pilot
     username: <your-username>
     password: <your-password>
   data:
@@ -145,12 +145,12 @@ server:
 ## 项目结构
 
 ```
-twelfth_module/
+med-pilot/
 ├── pom.xml
 └── src/
     ├── main/
-    │   ├── java/org/example/twelfth_module/
-    │   │   ├── TwelfthModuleApplication.java    # 启动类
+    │   ├── java/org/example/medpilot/
+    │   │   ├── MedPilotApplication.java    # 启动类
     │   │   ├── controller/
     │   │   │   ├── StatisticsController.java    # 统计聚合 + 漏服提醒
     │   │   │   ├── PlanController.java          # 处方计划
